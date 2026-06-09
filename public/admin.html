@@ -132,14 +132,20 @@
 <script>
   let ws;
   let state = {
-    answers: { 1:'123456789', 2:'987654321', 3:'789654321', 4:'135792468', 5:'321654987' },
-    submissions: { 1:[], 2:[], 3:[], 4:[], 5:[] },
+    answers: { 1: '123456789', 2: '987654321', 3: '789654321', 4: '135792468', 5: '321654987' },
+    submissions: { 1: [], 2: [], 3: [], 4: [], 5: [] },
     currentRound: 1
   };
 
   function connect() {
-    const host = location.hostname;
-    ws = new WebSocket(`ws://${host}:8347`);
+    // 1. Sjekk om siden bruker https (Render) eller http (lokalt)
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    
+    // 2. Bruk location.host i stedet for location.hostname (tar med port om nødvendig)
+    const host = location.host;
+
+    // 3. Opprett tilkoblingen
+    ws = new WebSocket(`${protocol}//${host}`);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'register_admin' }));
