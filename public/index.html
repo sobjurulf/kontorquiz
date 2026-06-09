@@ -109,8 +109,9 @@
     if (!input) return alert('Skriv inn et lagnavn!');
     teamName = input;
 
-    const host = location.hostname;
-    ws = new WebSocket(`ws://${host}:8347`);
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = location.host; // Tar med port automatisk hvis du kjører lokalt
+    ws = new WebSocket(`${protocol}//${host}`);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'register_team', teamName }));
