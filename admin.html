@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin – Quiz</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f0f4f8; color: #222; }
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.4rem; color: #e94560; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: #16213e;
+      padding: 0 24px;
+    }
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      color: #aaa;
+      border-bottom: 3px solid transparent;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    .tab.active { color: #fff; border-bottom-color: #e94560; }
+    .tab:hover { color: #fff; }
+    .content { padding: 24px; max-width: 900px; margin: 0 auto; }
+    .round-panel { display: none; }
+    .round-panel.active { display: block; }
+    .answer-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .answer-box label { font-weight: bold; min-width: 80px; }
+    .answer-box input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 2px solid #ddd;
+      font-size: 1.1rem;
+      letter-spacing: 3px;
+      flex: 1;
+      min-width: 160px;
+    }
+    .answer-box button {
+      padding: 10px 20px;
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .answer-box button:hover { background: #c73652; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    th {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 12px 16px;
+      text-align: left;
+    }
+    td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+    .badge.correct { background: #dcfce7; color: #16a34a; }
+    .badge.wrong { background: #fee2e2; color: #dc2626; }
+    .empty { color: #aaa; padding: 20px; text-align: center; }
+    .status-bar {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+    .stat { text-align: center; }
+    .stat .num { font-size: 1.8rem; font-weight: bold; color: #e94560; }
+    .stat .label { font-size: 0.85rem; color: #888; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎯 Quiz Admin</h1>
+  <span style="color:#aaa; font-size:0.9rem;" id="connStatus">Kobler til...</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(1)" id="tab1">Runde 1</div>
+  <div class="tab" onclick="switchTab(2)" id="tab2">Runde 2</div>
+  <div class="tab" onclick="switchTab(3)" id="tab3">Runde 3</div>
+  <div class="tab" onclick="switchTab(4)" id="tab4">Runde 4</div>
+  <div class="tab" onclick="switchTab(5)" id="tab5">Runde 5</div>
+</div>
+
+<div class="content">
+  <div id="panel1" class="round-panel active"></div>
+  <div id="panel2" class="round-panel"></div>
+  <div id="panel3" class="round-panel"></div>
+  <div id="panel4" class="round-panel"></div>
+  <div id="panel5" class="round-panel"></div>
+</div>
+
+<script>
+  let ws;
+  let state = {
+    answers: { 1:'123456789', 2:'987654321', 3:'789654321', 4:'135792468', 5:'321654987' },
+    submissions: { 1:[], 2:[], 3:[], 4:[], 5:[] },
+    currentRound: 1
+  };
+
+  function connect() {
+    const host = location.hostname;
+    ws = new WebSocket(`ws://${host}:8347`);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'register_admin' }));
+      document.getElementById('connStatus').textContent = '🟢 Tilkoblet';
+    };
+
+    ws.onclose = () => {
+      document.getElementById('connStatus').textContent = '🔴 Frakoblet – prøver igjen om 3 sek...';
+      setTimeout(connect, 3000);
+    };
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'init') {
+        state.answers = msg.answers;
+        state.submissions = msg.submissions;
+        state.currentRound = msg.currentRound;
+        renderAll();
+      }
+
+      if (msg.type === 'new_submission') {
+        state.submissions[msg.round].push(msg.entry);
+        renderPanel(msg.round);
+      }
+
+      if (msg.type === 'answers_updated') {
+        state.answers = msg.answers;
+        renderAll();
+      }
+
+      if (msg.type === 'round_changed') {
+        state.currentRound = msg.round;
+        renderAll();
+      }
+    };
+  }
+
+  function switchTab(round) {
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById(`tab${i}`).classList.toggle('active', i === round);
+      document.getElementById(`panel${i}`).classList.toggle('active', i === round);
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'set_round', round }));
+    }
+  }
+
+  function updateAnswer(round) {
+    const val = document.getElementById(`fasit${round}`).value.trim();
+    if (val.length !== 9) return alert('Fasiten må være nøyaktig 9 tegn!');
+    ws.send(JSON.stringify({ type: 'update_answer', round, answer: val }));
+    alert(`Fasit for runde ${round} oppdatert til: ${val}`);
+  }
+
+  function renderPanel(round) {
+    const subs = state.submissions[round] || [];
+    const fasit = state.answers[round] || '';
+    const isActive = state.currentRound == round;
+    const correct = subs.filter(s => s.correct);
+    const wrong = subs.filter(s => !s.correct);
+
+    let rows = '';
+    if (subs.length === 0) {
+      rows = `<tr><td colspan="4" class="empty">Ingen svar ennå</td></tr>`;
+    } else {
+      subs.forEach((s) => {
+        const pos = correct.indexOf(s) + 1;
+        rows += `
+          <tr>
+            <td><strong>${s.team}</strong></td>
+            <td style="letter-spacing:2px">${s.answer}</td>
+            <td><span class="badge ${s.correct ? 'correct' : 'wrong'}">${s.correct ? `✅ Riktig (#${pos})` : '❌ Feil'}</span></td>
+            <td style="color:#888">${s.time}</td>
+          </tr>`;
+      });
+    }
+
+    document.getElementById(`panel${round}`).innerHTML = `
+      <div class="answer-box">
+        <label>Fasit:</label>
+        <input type="text" id="fasit${round}" value="${fasit}" maxlength="9">
+        <button onclick="updateAnswer(${round})">Lagre fasit</button>
+        ${isActive ? '<span style="color:#16a34a; font-weight:bold;">● Aktiv runde</span>' : ''}
+      </div>
+      <div class="status-bar">
+        <div class="stat"><div class="num">${subs.length}</div><div class="label">Totalt innsendt</div></div>
+        <div class="stat"><div class="num">${correct.length}</div><div class="label">Riktige svar</div></div>
+        <div class="stat"><div class="num">${wrong.length}</div><div class="label">Feil svar</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Lag</th><th>Svar</th><th>Resultat</th><th>Tid</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  function renderAll() {
+    for (let i = 1; i <= 5; i++) renderPanel(i);
+  }
+
+  connect();
+</script>
+</body>
+</html>

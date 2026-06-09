@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      text-align: center;
+    }
+    h1 { font-size: 2rem; margin-bottom: 8px; color: #e94560; }
+    h2 { font-size: 1.2rem; margin-bottom: 24px; color: #aaa; font-weight: normal; }
+    input {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      border: 2px solid #0f3460;
+      background: #0f3460;
+      color: #fff;
+      text-align: center;
+      letter-spacing: 4px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    input:focus { border-color: #e94560; }
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.1rem;
+      border-radius: 8px;
+      border: none;
+      background: #e94560;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    button:hover { background: #c73652; }
+    button:disabled { background: #555; cursor: default; }
+    .feedback {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      display: none;
+    }
+    .feedback.correct { background: #1a4731; color: #4ade80; display: block; }
+    .feedback.wrong { background: #4a1a1a; color: #f87171; display: block; }
+    .round-badge {
+      display: inline-block;
+      background: #e94560;
+      color: #fff;
+      border-radius: 20px;
+      padding: 4px 16px;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    #setup { display: block; }
+    #game { display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div id="setup">
+    <h1>🎯 Quiz</h1>
+    <h2>Skriv inn lagnavn for å starte</h2>
+    <input type="text" id="teamInput" placeholder="Lagnavn..." maxlength="30">
+    <button onclick="joinQuiz()">Bli med!</button>
+  </div>
+
+  <div id="game">
+    <h1>🎯 Quiz</h1>
+    <div class="round-badge" id="roundBadge">Runde 1</div>
+    <h2 id="teamDisplay"></h2>
+    <p style="margin-bottom:16px; color:#aaa;">Skriv inn kombinasjonen din (9 siffer):</p>
+    <input type="text" id="answerInput" placeholder="F.eks. 123456789" maxlength="9" oninput="resetFeedback()">
+    <button id="submitBtn" onclick="submitAnswer()">Send inn svar</button>
+    <div class="feedback" id="feedback"></div>
+  </div>
+</div>
+
+<script>
+  let ws;
+  let teamName = '';
+  let currentRound = 1;
+  let submitted = {};
+
+  function joinQuiz() {
+    const input = document.getElementById('teamInput').value.trim();
+    if (!input) return alert('Skriv inn et lagnavn!');
+    teamName = input;
+
+    const host = location.hostname;
+    ws = new WebSocket(`ws://${host}:8347`);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'register_team', teamName }));
+    };
+
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'round') {
+        currentRound = msg.round;
+        updateRound();
+      }
+
+      if (msg.type === 'result') {
+        showFeedback(msg.correct, msg.answer);
+        if (msg.correct) submitted[currentRound] = true;
+      }
+    };
+
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    document.getElementById('teamDisplay').textContent = `Lag: ${teamName}`;
+  }
+
+  function updateRound() {
+    document.getElementById('roundBadge').textContent = `Runde ${currentRound}`;
+    document.getElementById('answerInput').value = '';
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('submitBtn').disabled = !!submitted[currentRound];
+    if (submitted[currentRound]) {
+      document.getElementById('feedback').className = 'feedback correct';
+      document.getElementById('feedback').textContent = '✅ Du har allerede svart riktig i denne runden.';
+    }
+  }
+
+  function submitAnswer() {
+    const answer = document.getElementById('answerInput').value.trim();
+    if (answer.length !== 9) return alert('Kombinasjonen må være 9 siffer!');
+    if (submitted[currentRound]) return;
+    ws.send(JSON.stringify({ type: 'submit', round: currentRound, answer }));
+    document.getElementById('submitBtn').disabled = true;
+  }
+
+  function showFeedback(correct, answer) {
+    const fb = document.getElementById('feedback');
+    if (correct) {
+      fb.className = 'feedback correct';
+      fb.textContent = `✅ Riktig! Kombinasjonen ${answer} stemmer.`;
+    } else {
+      fb.className = 'feedback wrong';
+      fb.textContent = `❌ Feil! ${answer} er ikke riktig. Prøv igjen!`;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  }
+
+  function resetFeedback() {
+    if (!submitted[currentRound]) {
+      document.getElementById('feedback').className = 'feedback';
+    }
+  }
+</script>
+</body>
+</html>
