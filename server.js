@@ -1,14 +1,20 @@
 const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
+const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Statiske filer
+app.use(express.static(path.join(process.cwd(), 'public')));
+
+// Admin-rute eksplisitt
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'admin.html'));
+});
+
 
 // --- Fasit ---
 let answers = {
