@@ -2,7 +2,7 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8">
-  <title>Admin – Quiz</title>
+  <title>Admin – Clevr Sommerquiz</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: sans-serif; background: #f0f4f8; color: #222; }
@@ -109,43 +109,49 @@
 <body>
 
 <header>
-  <h1>🎯 Quiz Admin</h1>
+  <h1>🎯 Clevr Sommerquiz Admin</h1>
   <span style="color:#aaa; font-size:0.9rem;" id="connStatus">Kobler til...</span>
 </header>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab(1)" id="tab1">Runde 1</div>
+  <div class="tab active" onclick="switchTab('Test')" id="tabTest">Testrunde</div>
+  <div class="tab" onclick="switchTab(1)" id="tab1">Runde 1</div>
   <div class="tab" onclick="switchTab(2)" id="tab2">Runde 2</div>
   <div class="tab" onclick="switchTab(3)" id="tab3">Runde 3</div>
   <div class="tab" onclick="switchTab(4)" id="tab4">Runde 4</div>
-  <div class="tab" onclick="switchTab(5)" id="tab5">Runde 5</div>
-  <div class="tab" onclick="switchTab(6)" id="tab6" style="color: #e94560;">🏆 Resultater</div>
+  <div class="tab" onclick="switchTab('Resultat')" id="tabResultat" style="color: #e94560;">🏆 Resultater</div>
 </div>
 
 <div class="content">
-  <div id="panel1" class="round-panel active"></div>
+  <div id="panelTest" class="round-panel active"></div>
+  <div id="panel1" class="round-panel"></div>
   <div id="panel2" class="round-panel"></div>
   <div id="panel3" class="round-panel"></div>
   <div id="panel4" class="round-panel"></div>
-  <div id="panel5" class="round-panel"></div>
-  <div id="panel6" class="round-panel"></div> </div>
+  <div id="panelResultat" class="round-panel"></div>
+</div>
 
 <script>
   let ws;
   let state = {
-    answers: { 1: '123456789', 2: '987654321', 3: '789654321', 4: '135792468', 5: '321654987' },
-    submissions: { 1: [], 2: [], 3: [], 4: [], 5: [] },
-    currentRound: 1
+    answers: { 'Test': '123456789', 1: '987654321', 2: '789654321', 3: '135792468', 4: '321654987' },
+    submissions: { 'Test': [], 1: [], 2: [], 3: [], 4: [] },
+    currentRound: 'Test'
+  };
+
+  const allRounds = ['Test', 1, 2, 3, 4, 'Resultat'];
+  const roundTitles = {
+    'Test': 'Testrunde (Sjekk at alle kan svare – gir ingen poeng)',
+    1: 'Runde 1: Ranger fra eldst til nyest',
+    2: 'Runde 2: Ranger fra billigst til dyrest',
+    3: 'Runde 3: Ranger fra yngst til eldst',
+    4: 'Runde 4: Ranger fra minst levealder til eldst levealder'
   };
 
   function connect() {
-    // 1. Sjekk om siden bruker https (Render) eller http (lokalt)
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    
-    // 2. Bruk location.host i stedet for location.hostname (tar med port om nødvendig)
     const host = location.host;
 
-    // 3. Opprett tilkoblingen
     ws = new WebSocket(`${protocol}//${host}`);
 
     ws.onopen = () => {
@@ -185,19 +191,18 @@
     };
   }
 
-function switchTab(round) {
-  for (let i = 1; i <= 6; i++) { // Endret fra 5 til 6
-    document.getElementById(`tab${i}`).classList.toggle('active', i === round);
-    document.getElementById(`panel${i}`).classList.toggle('active', i === round);
+  function switchTab(round) {
+    allRounds.forEach(r => {
+      document.getElementById(`tab${r}`).classList.toggle('active', r === round);
+      document.getElementById(`panel${r}`).classList.toggle('active', r === round);
+    });
+    
+    if (round === 'Resultat') {
+      fetchScoreboard();
+    } else if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'set_round', round }));
+    }
   }
-  
-  // Hvis admin klikker på resultatfanen, hent oppdatert poengtavle fra API-et
-  if (round === 6) {
-    fetchScoreboard();
-  } else if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'set_round', round }));
-  }
-}
 
   function updateAnswer(round) {
     const val = document.getElementById(`fasit${round}`).value.trim();
@@ -207,6 +212,8 @@ function switchTab(round) {
   }
 
   function renderPanel(round) {
+    if (round === 'Resultat') return;
+
     const subs = state.submissions[round] || [];
     const fasit = state.answers[round] || '';
     const isActive = state.currentRound == round;
@@ -229,11 +236,14 @@ function switchTab(round) {
       });
     }
 
+    const displayTitle = roundTitles[round] || `Runde ${round}`;
+
     document.getElementById(`panel${round}`).innerHTML = `
+      <div style="margin-bottom: 15px; font-size: 1.2rem; font-weight: bold; color: #1a1a2e;">${displayTitle}</div>
       <div class="answer-box">
         <label>Fasit:</label>
         <input type="text" id="fasit${round}" value="${fasit}" maxlength="9">
-        <button onclick="updateAnswer(${round})">Lagre fasit</button>
+        <button onclick="updateAnswer('${round}')">Lagre fasit</button>
         ${isActive ? '<span style="color:#16a34a; font-weight:bold;">● Aktiv runde</span>' : ''}
       </div>
       <div class="status-bar">
@@ -249,69 +259,68 @@ function switchTab(round) {
   }
 
   function renderAll() {
-    for (let i = 1; i <= 5; i++) renderPanel(i);
+    allRounds.forEach(r => {
+      if (r !== 'Resultat') renderPanel(r);
+    });
   }
 
   function fetchScoreboard() {
-  fetch('/api/scoreboard')
-    .then(res => res.json())
-    .then(data => {
-      let rows = '';
-      
-      if (data.length === 0) {
-        rows = `<tr><td colspan="8" class="empty">Ingen lag har registrert seg ennå.</td></tr>`;
-      } else {
-        data.forEach((teamData, index) => {
-          const placement = index + 1;
-          
-          // Uthev pallen litt ekstra med emojier
-          let medal = `${placement}.`;
-          if (placement === 1) medal = '🥇 1.';
-          if (placement === 2) medal = '🥈 2.';
-          if (placement === 3) medal = '🥉 3.';
+    fetch('/api/scoreboard')
+      .then(res => res.json())
+      .then(data => {
+        let rows = '';
+        
+        if (data.length === 0) {
+          rows = `<tr><td colspan="7" class="empty">Ingen lag har registrert seg ennå.</td></tr>`;
+        } else {
+          data.forEach((teamData, index) => {
+            const placement = index + 1;
+            
+            let medal = `${placement}.`;
+            if (placement === 1) medal = '🥇 1.';
+            if (placement === 2) medal = '🥈 2.';
+            if (placement === 3) medal = '🥉 3.';
 
-          rows += `
-            <tr>
-              <td><strong>${medal}</strong></td>
-              <td><strong>${teamData.team}</strong></td>
-              <td style="text-align:center; color:#888;">${teamData.rounds[1]} p</td>
-              <td style="text-align:center; color:#888;">${teamData.rounds[2]} p</td>
-              <td style="text-align:center; color:#888;">${teamData.rounds[3]} p</td>
-              <td style="text-align:center; color:#888;">${teamData.rounds[4]} p</td>
-              <td style="text-align:center; color:#888;">${teamData.rounds[5]} p</td>
-              <td style="text-align:center; font-weight:bold; color:#e94560; background:#fdf2f4;">${teamData.total} p</td>
-            </tr>
-          `;
-        });
-      }
+            rows += `
+              <tr>
+                <td><strong>${medal}</strong></td>
+                <td><strong>${teamData.team}</strong></td>
+                <td style="text-align:center; color:#888;">${teamData.rounds[1]} p</td>
+                <td style="text-align:center; color:#888;">${teamData.rounds[2]} p</td>
+                <td style="text-align:center; color:#888;">${teamData.rounds[3]} p</td>
+                <td style="text-align:center; color:#888;">${teamData.rounds[4]} p</td>
+                <td style="text-align:center; font-weight:bold; color:#e94560; background:#fdf2f4;">${teamData.total} p</td>
+              </tr>
+            `;
+          });
+        }
 
-      document.getElementById('panel6').innerHTML = `
-        <div style="background:#fff; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-          <h2 style="color:#1a1a2e; margin-bottom:10px;">Endelig poengtavle</h2>
-          <p style="color:#666; font-size:0.9rem;">Poeng utregnet basert på svartid per runde (10p til nr. 1, 9p til nr. 2 osv. Minst 5p for riktig svar).</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Plassering</th>
-              <th>Lagnavn</th>
-              <th style="text-align:center;">R1</th>
-              <th style="text-align:center;">R2</th>
-              <th style="text-align:center;">R3</th>
-              <th style="text-align:center;">R4</th>
-              <th style="text-align:center;">R5</th>
-              <th style="text-align:center; background:#1a1a2e; color:#fff;">Totalscore</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-    })
-    .catch(err => {
-      console.error('Kunne ikke hente poengtavle:', err);
-      document.getElementById('panel6').innerHTML = '<div class="empty">Feil ved henting av poeng.</div>';
-    });
-}
+        document.getElementById('panelResultat').innerHTML = `
+          <div style="background:#fff; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+            <h2 style="color:#1a1a2e; margin-bottom:10px;">Endelig poengtavle – Clevr Sommerquiz</h2>
+            <p style="color:#666; font-size:0.9rem;">Testrunden er holdt utenfor poengboka. Konkurranserundene gir 10p til nr. 1, 9p til nr. 2, 8p til nr. 3, 7p til nr. 4, 6p til nr. 5, og 5p til resten som svarer riktig.</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Plassering</th>
+                <th>Lagnavn</th>
+                <th style="text-align:center;">R1</th>
+                <th style="text-align:center;">R2</th>
+                <th style="text-align:center;">R3</th>
+                <th style="text-align:center;">R4</th>
+                <th style="text-align:center; background:#1a1a2e; color:#fff;">Totalscore</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      })
+      .catch(err => {
+        console.error('Kunne ikke hente poengtavle:', err);
+        document.getElementById('panelResultat').innerHTML = '<div class="empty">Feil ved henting av poeng.</div>';
+      });
+  }
 
   connect();
 </script>
