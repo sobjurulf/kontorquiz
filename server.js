@@ -13,22 +13,23 @@ app.get('/admin', (req, res) => {
 });
 
 // --- State ---
+// Runde 'Test' og 1-4 har standard 9-sifrede koder som fasit (kan endres i admin)
 let answers = {
-  1: '123456789',
-  2: '987654321',
-  3: '789654321',
-  4: '135792468',
-  5: '321654987'
+  'Test': '123456789',
+  1: '987654321',
+  2: '789654321',
+  3: '135792468',
+  4: '321654987'
 };
 
-let currentRound = 1;
-let submissions = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+let currentRound = 'Test'; // Quizen starter på testrunden
+let submissions = { 'Test': [], 1: [], 2: [], 3: [], 4: [] };
 
 // Lagring av aktive WebSocket-tilkoblinger
 let adminClients = new Set();
 let teamClients = new Map(); // teamName -> ws
 
-// Standard HTTP API (Beholdes i tilfelle du trenger dem senere)
+// Standard HTTP API
 app.get('/api/state', (req, res) => {
   res.json({ currentRound });
 });
@@ -39,29 +40,26 @@ app.get('/api/submissions', (req, res) => {
 
 // --- Generer Poengtavle ---
 app.get('/api/scoreboard', (req, res) => {
-  let teamScores = {}; // { lagnavn: { runder: [0,0,0,0,0], total: 0 } }
+  let teamScores = {}; // { lagnavn: { runder: [0,0,0,0], total: 0 } }
 
-  // Gå gjennom alle 5 rundene
-  for (let round = 1; round <= 5; round++) {
+  // Vi går KUN gjennom konkurranserundene (1 til 4). Testrunden hoppes over (gir 0 poeng).
+  for (let round = 1; round <= 4; round++) {
     const roundSubs = submissions[round] || [];
-    
-    // Filtrer ut kun de som har SVART RIKTIG, og behold rekkefølgen de kom inn
     const correctSubs = roundSubs.filter(s => s.correct);
 
     correctSubs.forEach((sub, index) => {
       const team = sub.team;
       
-      // Hvis vi ikke har sett laget før, opprett objektet
       if (!teamScores[team]) {
         teamScores[team] = {
           team: team,
-          rounds: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          rounds: { 1: 0, 2: 0, 3: 0, 4: 0 },
           total: 0
         };
       }
 
-      // Regn ut poeng basert på plassering i runden
-      let points = 5; // Standard for 6. plass og utover
+      // Poengfordeling etter dine regler
+      let points = 5; 
       if (index === 0) points = 10;      // 1. plass
       else if (index === 1) points = 9;  // 2. plass
       else if (index === 2) points = 8;  // 3. plass
@@ -72,18 +70,17 @@ app.get('/api/scoreboard', (req, res) => {
     });
   }
 
-  // Sørg for at lag som har registrert seg, men kanskje ikke har fått poeng ennå, også vises
+  // Sørg for at alle registrerte lag vises, selv om de har 0 poeng
   teamClients.forEach((ws, teamName) => {
     if (!teamScores[teamName]) {
       teamScores[teamName] = {
         team: teamName,
-        rounds: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        rounds: { 1: 0, 2: 0, 3: 0, 4: 0 },
         total: 0
       };
     }
   });
 
-  // Beregn totalpoeng for hvert lag og gjør om til en liste
   const scoreboardArray = Object.values(teamScores).map(teamData => {
     const total = Object.values(teamData.rounds).reduce((sum, p) => sum + p, 0);
     return {
@@ -92,9 +89,7 @@ app.get('/api/scoreboard', (req, res) => {
     };
   });
 
-  // Sorter listen slik at den med mest poeng kommer øverst
   scoreboardArray.sort((a, b) => b.total - a.total);
-
   res.json(scoreboardArray);
 });
 
