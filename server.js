@@ -37,6 +37,67 @@ app.get('/api/submissions', (req, res) => {
   res.json({ submissions, answers, currentRound });
 });
 
+// --- Generer Poengtavle ---
+app.get('/api/scoreboard', (req, res) => {
+  let teamScores = {}; // { lagnavn: { runder: [0,0,0,0,0], total: 0 } }
+
+  // Gå gjennom alle 5 rundene
+  for (let round = 1; round <= 5; round++) {
+    const roundSubs = submissions[round] || [];
+    
+    // Filtrer ut kun de som har SVART RIKTIG, og behold rekkefølgen de kom inn
+    const correctSubs = roundSubs.filter(s => s.correct);
+
+    correctSubs.forEach((sub, index) => {
+      const team = sub.team;
+      
+      // Hvis vi ikke har sett laget før, opprett objektet
+      if (!teamScores[team]) {
+        teamScores[team] = {
+          team: team,
+          rounds: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          total: 0
+        };
+      }
+
+      // Regn ut poeng basert på plassering i runden
+      let points = 5; // Standard for 6. plass og utover
+      if (index === 0) points = 10;      // 1. plass
+      else if (index === 1) points = 9;  // 2. plass
+      else if (index === 2) points = 8;  // 3. plass
+      else if (index === 3) points = 7;  // 4. plass
+      else if (index === 4) points = 6;  // 5. plass
+
+      teamScores[team].rounds[round] = points;
+    });
+  }
+
+  // Sørg for at lag som har registrert seg, men kanskje ikke har fått poeng ennå, også vises
+  teamClients.forEach((ws, teamName) => {
+    if (!teamScores[teamName]) {
+      teamScores[teamName] = {
+        team: teamName,
+        rounds: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        total: 0
+      };
+    }
+  });
+
+  // Beregn totalpoeng for hvert lag og gjør om til en liste
+  const scoreboardArray = Object.values(teamScores).map(teamData => {
+    const total = Object.values(teamData.rounds).reduce((sum, p) => sum + p, 0);
+    return {
+      ...teamData,
+      total: total
+    };
+  });
+
+  // Sorter listen slik at den med mest poeng kommer øverst
+  scoreboardArray.sort((a, b) => b.total - a.total);
+
+  res.json(scoreboardArray);
+});
+
 // Start HTTP-serveren først
 const PORT = process.env.PORT || 8347;
 const server = app.listen(PORT, () => {
