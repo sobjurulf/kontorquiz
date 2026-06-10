@@ -119,6 +119,7 @@
   <div class="tab" onclick="switchTab(3)" id="tab3">Runde 3</div>
   <div class="tab" onclick="switchTab(4)" id="tab4">Runde 4</div>
   <div class="tab" onclick="switchTab(5)" id="tab5">Runde 5</div>
+  <div class="tab" onclick="switchTab(6)" id="tab6" style="color: #e94560;">🏆 Resultater</div>
 </div>
 
 <div class="content">
@@ -127,7 +128,7 @@
   <div id="panel3" class="round-panel"></div>
   <div id="panel4" class="round-panel"></div>
   <div id="panel5" class="round-panel"></div>
-</div>
+  <div id="panel6" class="round-panel"></div> </div>
 
 <script>
   let ws;
@@ -184,15 +185,19 @@
     };
   }
 
-  function switchTab(round) {
-    for (let i = 1; i <= 5; i++) {
-      document.getElementById(`tab${i}`).classList.toggle('active', i === round);
-      document.getElementById(`panel${i}`).classList.toggle('active', i === round);
-    }
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'set_round', round }));
-    }
+function switchTab(round) {
+  for (let i = 1; i <= 6; i++) { // Endret fra 5 til 6
+    document.getElementById(`tab${i}`).classList.toggle('active', i === round);
+    document.getElementById(`panel${i}`).classList.toggle('active', i === round);
   }
+  
+  // Hvis admin klikker på resultatfanen, hent oppdatert poengtavle fra API-et
+  if (round === 6) {
+    fetchScoreboard();
+  } else if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'set_round', round }));
+  }
+}
 
   function updateAnswer(round) {
     const val = document.getElementById(`fasit${round}`).value.trim();
@@ -246,6 +251,67 @@
   function renderAll() {
     for (let i = 1; i <= 5; i++) renderPanel(i);
   }
+
+  function fetchScoreboard() {
+  fetch('/api/scoreboard')
+    .then(res => res.json())
+    .then(data => {
+      let rows = '';
+      
+      if (data.length === 0) {
+        rows = `<tr><td colspan="8" class="empty">Ingen lag har registrert seg ennå.</td></tr>`;
+      } else {
+        data.forEach((teamData, index) => {
+          const placement = index + 1;
+          
+          // Uthev pallen litt ekstra med emojier
+          let medal = `${placement}.`;
+          if (placement === 1) medal = '🥇 1.';
+          if (placement === 2) medal = '🥈 2.';
+          if (placement === 3) medal = '🥉 3.';
+
+          rows += `
+            <tr>
+              <td><strong>${medal}</strong></td>
+              <td><strong>${teamData.team}</strong></td>
+              <td style="text-align:center; color:#888;">${teamData.rounds[1]} p</td>
+              <td style="text-align:center; color:#888;">${teamData.rounds[2]} p</td>
+              <td style="text-align:center; color:#888;">${teamData.rounds[3]} p</td>
+              <td style="text-align:center; color:#888;">${teamData.rounds[4]} p</td>
+              <td style="text-align:center; color:#888;">${teamData.rounds[5]} p</td>
+              <td style="text-align:center; font-weight:bold; color:#e94560; background:#fdf2f4;">${teamData.total} p</td>
+            </tr>
+          `;
+        });
+      }
+
+      document.getElementById('panel6').innerHTML = `
+        <div style="background:#fff; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <h2 style="color:#1a1a2e; margin-bottom:10px;">Endelig poengtavle</h2>
+          <p style="color:#666; font-size:0.9rem;">Poeng utregnet basert på svartid per runde (10p til nr. 1, 9p til nr. 2 osv. Minst 5p for riktig svar).</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Plassering</th>
+              <th>Lagnavn</th>
+              <th style="text-align:center;">R1</th>
+              <th style="text-align:center;">R2</th>
+              <th style="text-align:center;">R3</th>
+              <th style="text-align:center;">R4</th>
+              <th style="text-align:center;">R5</th>
+              <th style="text-align:center; background:#1a1a2e; color:#fff;">Totalscore</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    })
+    .catch(err => {
+      console.error('Kunne ikke hente poengtavle:', err);
+      document.getElementById('panel6').innerHTML = '<div class="empty">Feil ved henting av poeng.</div>';
+    });
+}
 
   connect();
 </script>
