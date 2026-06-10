@@ -81,14 +81,14 @@
 <body>
 <div class="card">
   <div id="setup">
-    <h1>🎯 Quiz</h1>
+    <h1>☀️ Clevr sin sommerquiz</h1>
     <h2>Skriv inn lagnavn for å starte</h2>
     <input type="text" id="teamInput" placeholder="Lagnavn..." maxlength="30">
     <button onclick="joinQuiz()">Bli med!</button>
   </div>
 
   <div id="game">
-    <h1>🎯 Quiz</h1>
+    <h1>☀️ Clevr sin sommerquiz</h1>
     <div class="round-badge" id="roundBadge">Runde 1</div>
     <h2 id="teamDisplay"></h2>
     <p style="margin-bottom:16px; color:#aaa;">Skriv inn kombinasjonen din (9 siffer):</p>
@@ -136,16 +136,29 @@
     document.getElementById('teamDisplay').textContent = `Lag: ${teamName}`;
   }
 
-  function updateRound() {
-    document.getElementById('roundBadge').textContent = `Runde ${currentRound}`;
-    document.getElementById('answerInput').value = '';
-    document.getElementById('feedback').className = 'feedback';
-    document.getElementById('submitBtn').disabled = !!submitted[currentRound];
-    if (submitted[currentRound]) {
-      document.getElementById('feedback').className = 'feedback correct';
-      document.getElementById('feedback').textContent = '✅ Du har allerede svart riktig i denne runden.';
-    }
+  // Enkel oversikt over hva rundene faktisk heter
+const roundNames = {
+  'Test': 'Testrunde (Ingen poeng)',
+  '1': 'Runde 1: Ranger fra eldst til nyest',
+  '2': 'Runde 2: Ranger fra billigst til dyrest',
+  '3': 'Runde 3: Ranger fra yngst til eldst',
+  '4': 'Runde 4: Ranger fra minst levealder til eldst levealder'
+};
+
+function updateRound() {
+  // Hent det fine navnet fra listen over, eller bruk rundenummeret direkte som fallback
+  const roundText = roundNames[currentRound] || `Runde ${currentRound}`;
+  document.getElementById('roundBadge').textContent = roundText;
+  
+  document.getElementById('answerInput').value = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('submitBtn').disabled = !!submitted[currentRound];
+  
+  if (submitted[currentRound]) {
+    document.getElementById('feedback').className = 'feedback correct';
+    document.getElementById('feedback').textContent = '✅ Du har allerede svart riktig i denne runden.';
   }
+}
 
   function submitAnswer() {
     const answer = document.getElementById('answerInput').value.trim();
