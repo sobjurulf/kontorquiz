@@ -13,16 +13,15 @@ app.get('/admin', (req, res) => {
 });
 
 // --- State ---
-// Runde 'Test' og 1-4 har standard 9-sifrede koder som fasit (kan endres i admin)
 let answers = {
-  'Test': '123456789',
-  1: '987654321',
-  2: '789654321',
-  3: '135792468',
-  4: '321654987'
+  'Test': '987654321',
+  1: '593712864',
+  2: '387256914',
+  3: '938571462',
+  4: '716349825'
 };
 
-let currentRound = 'Test'; // Quizen starter på testrunden
+let currentRound = 'Test';
 let submissions = { 'Test': [], 1: [], 2: [], 3: [], 4: [] };
 
 // Lagring av aktive WebSocket-tilkoblinger
