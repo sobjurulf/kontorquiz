@@ -133,8 +133,8 @@
 
 <script>
   let ws;
-  let state = {
-    answers: { 'Test': '123456789', 1: '987654321', 2: '789654321', 3: '135792468', 4: '321654987' },
+let state = {
+    answers: { 'Test': '123456789', 1: '593712864', 2: '387256914', 3: '938571462', 4: '716349825' },
     submissions: { 'Test': [], 1: [], 2: [], 3: [], 4: [] },
     currentRound: 'Test'
   };
@@ -142,10 +142,10 @@
   const allRounds = ['Test', 1, 2, 3, 4, 'Resultat'];
   const roundTitles = {
     'Test': 'Testrunde (Sjekk at alle kan svare – gir ingen poeng)',
-    1: 'Runde 1: Ranger fra eldst til nyest',
-    2: 'Runde 2: Ranger fra billigst til dyrest',
+    1: 'Runde 1: Ranger fra kortest levealder til lengst levealder',
+    2: 'Runde 2: Ranger disse hendelsene fra eldst til nyest',
     3: 'Runde 3: Ranger fra yngst til eldst',
-    4: 'Runde 4: Ranger fra minst levealder til eldst levealder'
+    4: 'Runde 4: Ranger fra billigst til dyrest'
   };
 
   function connect() {
